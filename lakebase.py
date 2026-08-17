@@ -1,7 +1,7 @@
 """
 Lakebase (Databricks-managed Postgres) connection helper.
 
-Identical pattern to Day 2/3's lakebase.py. Uses lazy WorkspaceClient
+Uses lazy WorkspaceClient
 initialization to avoid the "OAuth Token not supported for current auth
 type PAT" error when instantiated at module import time inside a
 Databricks App runtime.
