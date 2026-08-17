@@ -1,9 +1,8 @@
 """
 One-time setup script: stores the Lakebase URL in the Databricks secret scope.
 
-RoamAI reuses the SAME Lakebase URL secret you set up for Day 2 / Day 3
-(scope=database, key=lakebase-url), so you almost certainly don't need to
-run this again.
+If the Lakebase URL secret already exists in your workspace (e.g. from
+prior projects), you don't need to run this again.
 
 Run this only if:
   - You're in a fresh Databricks workspace
