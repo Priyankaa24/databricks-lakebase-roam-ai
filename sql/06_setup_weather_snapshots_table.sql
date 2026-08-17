@@ -1,5 +1,5 @@
 -- Cached weather + air quality forecasts per destination per date.
--- The Spark ingestion job populates this daily; the agent reads from it
+-- The ingestion notebook populates this; the agent reads from it
 -- instead of hitting Open-Meteo on every tool call.
 
 CREATE TABLE IF NOT EXISTS weather_snapshots (
