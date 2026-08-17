@@ -95,8 +95,8 @@ roam-ai/
 │   └── README.md
 │
 ├── notebooks/                          # Ingestion + embedding
-│   ├── ingest_destinations_pipeline.py # Wikipedia + geocode → Lakebase
-│   └── embed_pipeline.py               # Chunk + embed → pgvector
+│   ├── ingest_destinations_pipeline.ipynb  # Wikipedia + geocode → Lakebase
+│   └── embed_pipeline.ipynb                # Embed → pgvector
 │
 ├── mcp_server/                         # FastMCP server (Databricks App #2)
 │   ├── trip_mcp_server.py              # 7 tools (5 write + 2 read)
@@ -148,7 +148,7 @@ Databricks SQL editor, in order. See `sql/README.md` for details.
 
 ### Run the ingestion notebook
 
-Open `notebooks/ingest_destinations_pipeline.py` in Databricks. Attach
+Open `notebooks/ingest_destinations_pipeline.ipynb` in Databricks. Attach
 to serverless compute. Run all cells. Confirms:
 
 - All 7 tables exist
