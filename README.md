@@ -7,9 +7,9 @@ itineraries from live weather forecasts, air quality data, and semantic
 search over destination attractions — then reschedules outdoor
 activities automatically when the forecast changes.
 
-Built on Databricks for the "Rise of the AI Data Engineer" bootcamp
-capstone. Extends the RAG + MCP patterns from Day 2 and Day 3 into a
-full agentic application.
+Built on Databricks — combines relational data (Lakebase Postgres),
+semantic search (pgvector), and an MCP-based AI agent into a full
+weather-aware trip planning application.
 
 ---
 
@@ -119,6 +119,8 @@ roam-ai/
 
 ## What the agent can do
 
+Five capabilities:
+
 1. **Generate a day-by-day itinerary** — given destination + interests + dates
 2. **Reschedule outdoor activities** when rain or poor air quality is forecast
 3. **Build a packing list** based on trip length, weather, and activities
@@ -137,20 +139,33 @@ embedded destinations and activities.
 - A Databricks workspace with Apps enabled
 - A Lakebase (Databricks-managed Postgres) instance with `pgvector` enabled
 - Lakebase URL stored in Databricks secret `database/lakebase-url`
-  (already set up from Day 2 — no action needed)
+  (reused across projects — no action needed if already set up)
 
 ### Setup
 
 Create the 7 Lakebase tables by running each `sql/*.sql` file in the
 Databricks SQL editor, in order. See `sql/README.md` for details.
 
-### Run the Day 1 notebook
+### Run the ingestion notebook
 
 Open `notebooks/ingest_destinations_pipeline.py` in Databricks. Attach
 to serverless compute. Run all cells. Confirms:
+
+- All 7 tables exist
+- Open-Meteo geocoding works
+- Wikipedia API works
+- First trip + destination lands in Lakebase (Kauai, Dec 22-28)
+
 ---
 
+## Roadmap
 
+- [x] Lakebase schema + API integration
+- [ ] Ingestion notebook (Wikipedia attractions → activities)
+- [ ] Embedding pipeline (destinations + activities → pgvector)
+- [ ] MCP server with 7 tools
+- [ ] Streamlit dashboard
+- [ ] Agent Bricks setup + end-to-end testing
 
 ---
 
@@ -159,7 +174,7 @@ to serverless compute. Run all cells. Confirms:
 - **Single-user model.** No auth/groups. User identified by
   `X-Forwarded-User` header (from Databricks App runtime).
 - **One destination per trip.** Multi-city trips would need a
-  `trip_legs` table; out of scope for this capstone.
+  `trip_legs` table; out of scope for this iteration.
 - **No caching.** Every agent tool call hits the upstream API (fine for
   personal use; wouldn't scale to production traffic).
 - **Static activity library.** Activities extracted from Wikipedia +
