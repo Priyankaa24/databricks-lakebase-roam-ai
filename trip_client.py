@@ -1,8 +1,8 @@
 """
 Trip client: thin HTTP wrapper around the third-party APIs used by RoamAI.
 
-Same role as weather_client.py in Day 2 — pull data from external APIs
-and return clean dicts. The ingestion notebook and the MCP server
+Provides a clean interface for pulling data from external APIs
+and returning clean dicts. The ingestion notebook and the MCP server
 both call functions from this module.
 
 APIs (all free, no key required):
@@ -11,8 +11,6 @@ APIs (all free, no key required):
   - Open-Meteo Air Quality — AQI, PM2.5, UV
   - Wikipedia (Wikimedia REST) — destination summaries + nearby articles
 
-Wikipedia asks for a descriptive User-Agent header identifying the app +
-a contact email. Override via env var when deploying.
 """
 
 import os
