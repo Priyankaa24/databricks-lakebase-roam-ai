@@ -4,4 +4,4 @@ sqlalchemy>=2.0.30
 python-dotenv>=1.0.1
 requests>=2.31.0
 sentence-transformers>=2.2.0
-flask>=3.0.0
+streamlit>=1.30.0
