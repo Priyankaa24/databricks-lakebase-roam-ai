@@ -6,6 +6,11 @@ RoamAI is a trip-planning app where an AI agent builds day-by-day
 itineraries from live weather forecasts, air quality data, and semantic
 search over destination attractions — then reschedules outdoor
 activities automatically when the forecast changes.
+
+Built on Databricks for the "Rise of the AI Data Engineer" bootcamp
+capstone. Extends the RAG + MCP patterns from Day 2 and Day 3 into a
+full agentic application.
+
 ---
 
 ## What makes it weather-aware
@@ -27,28 +32,41 @@ interesting:
 
 ## Tech stack
 
-- **Backend** — Python, Flask, FastMCP
-- **Database** — PostgreSQL (Databricks Lakebase) with pgvector
-- **Warehouse** — Delta tables in Unity Catalog (bronze / silver / gold)
+- **Frontend** — Streamlit (deployed as a Databricks App)
+- **AI agent** — Databricks Agent Bricks with external MCP tool source
+- **MCP server** — FastMCP over HTTP (deployed as a Databricks App)
+- **Database** — Databricks Lakebase (managed PostgreSQL + pgvector)
 - **Embeddings** — `sentence-transformers/all-MiniLM-L6-v2` (384-dim)
-- **Live data** — Open-Meteo (geocoding + weather + air quality) + Wikimedia
-- **Compute** — Databricks serverless notebook compute + Databricks Workflows
-- **Frontend** — Databricks Genie over Gold Delta tables
-- **AI** — Databricks Agent Bricks with external MCP tool
-- **Change data feed** — Lakebase → Delta CDF for analytics
+- **APIs** — Open-Meteo (geocoding, weather, air quality) + Wikimedia
+- **Compute** — Databricks serverless notebook compute
 
 ---
 
-## Capstone requirements coverage
+## Architecture
 
-| # | Requirement | Where |
-|---|---|---|
-| 1 | Spark data pipeline | `notebooks/*.py` scheduled via `resources/*.yml` |
-| 2 | Third-party API integration | `trip_client.py` (Open-Meteo + Wikipedia) |
-| 3 | Unstructured data processing | `notebooks/embed_destinations.py` chunks + embeds Wikipedia text |
-| 4 | Databricks App frontend | Genie dashboard configured over Gold Delta tables (`genie/`) |
-| 5 | AI agent with read + write tools | `mcp_server/` (10+ tools, deployed as Databricks App) |
-| 6 | All prod data in Unity Catalog | Delta tables in `roam_ai.bronze/silver/gold`; Lakebase Postgres for live app state; CDF sync from Lakebase → Delta |
+```
+User
+  │
+  ├──► Streamlit Dashboard (Databricks App #1)
+  │       Trip management UI — create trips, view itineraries, packing
+  │       │
+  │       │ SQL queries + inserts
+  │       ▼
+  │    Lakebase Postgres (7 tables + pgvector for semantic search)
+  │       ▲
+  │       │
+  └──► Agent Bricks chat interface
+          │
+          │ Tool calls over HTTP
+          ▼
+       MCP Server (Databricks App #2)
+          │
+          │ Reads + writes
+          ▼
+       Lakebase Postgres  ← same database, shared state
+```
+
+Two Databricks Apps + one AI Agent + one shared Lakebase database.
 
 ---
 
@@ -57,17 +75,16 @@ interesting:
 ```
 roam-ai/
 ├── README.md                           # this file
-├── app.py                              # Flask app (trip management UI)
-├── app.yaml                            # Databricks App config for Flask
-├── lakebase.py                         # Postgres helper (shared)
-├── trip_client.py                      # HTTP client for Open-Meteo + Wikipedia
+├── app.py                              # Streamlit dashboard
+├── app.yaml                            # Databricks App config for dashboard
+├── lakebase.py                         # Postgres connection helper
+├── trip_client.py                      # Open-Meteo + Wikipedia HTTP client
 ├── requirements.txt
-├── setup_secrets.py
-├── databricks.yml
+├── setup_secrets.py                    # One-time Lakebase URL setup
 ├── .env.example
 ├── .gitignore
 │
-├── sql/                                # DDL for all tables
+├── sql/                                # 7 Lakebase table DDL files
 │   ├── 01_setup_users_table.sql
 │   ├── 02_setup_trips_table.sql
 │   ├── 03_setup_destinations_table.sql
@@ -75,41 +92,43 @@ roam-ai/
 │   ├── 05_setup_itinerary_items_table.sql
 │   ├── 06_setup_weather_snapshots_table.sql
 │   ├── 07_setup_packing_items_table.sql
-│   ├── 08_setup_analytics_delta.sql    # Delta tables + CDF
 │   └── README.md
 │
-├── notebooks/                          # Spark ingestion + embedding
-│   ├── ingest_destinations_pipeline.py # Wikipedia + geocoding → Lakebase
-│   └── embed_destinations.py           # Chunk + embed → Lakebase pgvector
+├── notebooks/                          # Ingestion + embedding
+│   ├── ingest_destinations_pipeline.py # Wikipedia + geocode → Lakebase
+│   └── embed_pipeline.py               # Chunk + embed → pgvector
 │
-├── resources/                          # Databricks Workflow YAMLs
-│   └── (job schedules)
-│
-├── templates/                          # Flask templates
-│   ├── index.html
-│   └── trip_detail.html
-│
-├── mcp_server/                         # Databricks App: MCP server
-│   ├── trip_mcp_server.py
-│   ├── trip_broker.py
-│   ├── lakebase.py
+├── mcp_server/                         # FastMCP server (Databricks App #2)
+│   ├── trip_mcp_server.py              # 7 tools (5 write + 2 read)
+│   ├── trip_broker.py                  # Business logic + API helpers
+│   ├── lakebase.py                     # Copy of root lakebase.py
 │   ├── app.yaml
 │   ├── requirements.txt
 │   └── README.md
 │
 ├── agent/                              # Agent Bricks configuration
-│   ├── README.md
-│   ├── system_prompt.md
-│   └── screenshots/
-│
-├── genie/                              # Genie frontend config
-│   ├── README.md
-│   └── sample_questions.md
+│   ├── README.md                       # Wiring instructions
+│   ├── system_prompt.md                # Verbatim configured prompt
+│   └── screenshots/                    # Config + behavior evidence
 │
 └── docs/
-    ├── architecture.md
-    └── DEPLOYMENT_ISSUES.md
+    └── DEPLOYMENT_ISSUES.md            # Lessons learned during deployment
 ```
+
+---
+
+## What the agent can do
+
+Five capabilities (from Zach's Trip Planner spec):
+
+1. **Generate a day-by-day itinerary** — given destination + interests + dates
+2. **Reschedule outdoor activities** when rain or poor air quality is forecast
+3. **Build a packing list** based on trip length, weather, and activities
+4. **Add, remove, or move itinerary items** — modify trip plans conversationally
+5. **Explain weather-based changes** — tell you WHY each rescheduling happened
+
+Backed by 7 MCP tools (5 write + 2 read) that call semantic search over
+embedded destinations and activities.
 
 ---
 
@@ -119,48 +138,38 @@ roam-ai/
 
 - A Databricks workspace with Apps enabled
 - A Lakebase (Databricks-managed Postgres) instance with `pgvector` enabled
-- The Lakebase connection URL stored at Databricks secret `database/lakebase-url`
+- Lakebase URL stored in Databricks secret `database/lakebase-url`
   (already set up from Day 2 — no action needed)
 
-### One-time setup
+### Setup
 
-If `database/lakebase-url` doesn't already exist:
-
-```bash
-python setup_secrets.py
-```
-
-Then create the 7 Lakebase tables by running each `sql/*.sql` file in
-the Databricks SQL editor, in order. See `sql/README.md` for details.
+Create the 7 Lakebase tables by running each `sql/*.sql` file in the
+Databricks SQL editor, in order. See `sql/README.md` for details.
 
 ### Run the Day 1 notebook
 
 Open `notebooks/ingest_destinations_pipeline.py` in Databricks. Attach
 to serverless compute. Run all cells. Confirms:
-
-- All 7 tables exist
-- Open-Meteo geocoding works
-- Wikipedia API works
-- First trip + destination lands in Lakebase
-
 ---
 
 ## Roadmap
 
 - [x] Day 1 — Lakebase schema + API integration
-- [ ] Day 2 — Spark pipeline: Wikipedia → Delta (bronze/silver/gold)
+- [ ] Day 2 — Ingestion notebook (Wikipedia attractions → activities)
 - [ ] Day 3 — Embedding pipeline (destinations + activities → pgvector)
-- [ ] Day 4 — MCP server with read + write tools
-- [ ] Day 5 — Databricks App frontend + CDF setup
-- [ ] Day 6 — Agent Bricks setup + end-to-end test
-- [ ] Day 7 — README polish + submission
+- [ ] Day 4 — MCP server with 7 tools
+- [ ] Day 5 — Streamlit dashboard
+- [ ] Day 6 — Agent Bricks setup + testing + README polish + submit
 
 ---
 
 ## Known limitations & future work
 
-- **Single-user model.** No auth/groups. User identified by `X-Forwarded-User` header.
-- **One destination per trip.** Multi-city trips would need a `trip_legs` table.
-- **NWS alerts are US-only.** International severe-weather alerts unsupported.
-- **No caching.** Every agent tool call hits the upstream API (fine for personal use, wouldn't scale to production).
-- **Static recommendation rules.** Activity suggestions come from Wikipedia + LLM inference, not user feedback loops.
+- **Single-user model.** No auth/groups. User identified by
+  `X-Forwarded-User` header (from Databricks App runtime).
+- **One destination per trip.** Multi-city trips would need a
+  `trip_legs` table; out of scope for this capstone.
+- **No caching.** Every agent tool call hits the upstream API (fine for
+  personal use; wouldn't scale to production traffic).
+- **Static activity library.** Activities extracted from Wikipedia +
+  seed data. No user-feedback loop for recommendation improvement.
