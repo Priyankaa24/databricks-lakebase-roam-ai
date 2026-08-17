@@ -1,7 +1,7 @@
 # SQL Schema
 
-Seven tables in Lakebase (Postgres + pgvector), matching Zach's
-capstone spec for the Trip Planner project.
+Seven tables in Lakebase (Postgres + pgvector) supporting the RoamAI
+trip planner data model.
 
 ## Run order
 
@@ -24,15 +24,16 @@ depend on foreign keys defined in earlier files, so ordering matters.
 - **One destination per trip.** Simplifies day-by-day scheduling — the
   `itinerary_items.day_number` unambiguously maps to a date within one
   trip's date range. Multi-city trips would need a separate `trip_legs`
-  table; out of scope for this capstone.
+  table; out of scope for this iteration.
 - **`weather_sensitive` flag on activities.** This is what powers the
   "reschedule when it rains" feature. Outdoor activities set this to
   TRUE; indoor backups (museums, dining) leave it FALSE.
 - **Embeddings on destinations AND activities.** 384-dim vectors from
-  `sentence-transformers/all-MiniLM-L6-v2` (same model as Day 2, so we
+  `sentence-transformers/all-MiniLM-L6-v2` (matches the embedding model
+  used elsewhere in the pipeline, so we
   can reuse the ingestion notebook pattern). HNSW cosine index on both.
 - **`weather_snapshots` is a cache, not source of truth.** Populated by
-  the daily Spark job. The agent reads from here for speed. If a date
+  the ingestion notebook. The agent reads from here for speed. If a date
   isn't in the cache, the agent hits Open-Meteo directly.
 - **`packing_items.reasoning`** exists so the agent can explain why it
   suggested each item ("rain expected Fri" → "waterproof jacket").

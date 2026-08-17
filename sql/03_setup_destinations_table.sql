@@ -1,6 +1,6 @@
 -- One row per destination attached to a trip. Includes the Wikipedia
 -- description and an embedding of it for semantic activity retrieval.
--- Uses the pgvector extension (already installed from Day 2).
+-- Uses the pgvector extension.
 
 CREATE EXTENSION IF NOT EXISTS vector;
 
