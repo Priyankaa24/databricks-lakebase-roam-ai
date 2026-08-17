@@ -119,8 +119,6 @@ roam-ai/
 
 ## What the agent can do
 
-Five capabilities (from Zach's Trip Planner spec):
-
 1. **Generate a day-by-day itinerary** — given destination + interests + dates
 2. **Reschedule outdoor activities** when rain or poor air quality is forecast
 3. **Build a packing list** based on trip length, weather, and activities
@@ -152,14 +150,7 @@ Open `notebooks/ingest_destinations_pipeline.py` in Databricks. Attach
 to serverless compute. Run all cells. Confirms:
 ---
 
-## Roadmap
 
-- [x] Day 1 — Lakebase schema + API integration
-- [ ] Day 2 — Ingestion notebook (Wikipedia attractions → activities)
-- [ ] Day 3 — Embedding pipeline (destinations + activities → pgvector)
-- [ ] Day 4 — MCP server with 7 tools
-- [ ] Day 5 — Streamlit dashboard
-- [ ] Day 6 — Agent Bricks setup + testing + README polish + submit
 
 ---
 
