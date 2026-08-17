@@ -6,11 +6,6 @@ RoamAI is a trip-planning app where an AI agent builds day-by-day
 itineraries from live weather forecasts, air quality data, and semantic
 search over destination attractions — then reschedules outdoor
 activities automatically when the forecast changes.
-
-Built on Databricks for the "Rise of the AI Data Engineer" bootcamp
-capstone. Extends the patterns from Day 2 (RAG on pgvector) and Day 3
-(FastMCP + Agent Bricks) into a full-stack agentic application.
-
 ---
 
 ## What makes it weather-aware
