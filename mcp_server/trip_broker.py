@@ -136,8 +136,13 @@ def get_daily_forecast(latitude: float, longitude: float, days: int = 7) -> list
 
 
 def get_air_quality(latitude: float, longitude: float, days: int = 5) -> list[dict]:
-    """Daily air quality forecast (US EPA AQI + UV)."""
-    days = max(1, min(7, int(days)))
+    """Daily air quality forecast (US EPA AQI + UV).
+
+    Note: Open-Meteo's air quality API only supports up to 5 forecast days.
+    We cap at 5 even when the caller requests more; for trips longer than
+    5 days we just don't have AQI data for the tail end.
+    """
+    days = max(1, min(5, int(days)))
     resp = requests.get(
         f"{OPEN_METEO_AIR_QUALITY_BASE}/air-quality",
         params={
