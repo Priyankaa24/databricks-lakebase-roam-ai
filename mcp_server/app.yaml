@@ -1,0 +1,12 @@
+command:
+  - "python"
+  - "trip_mcp_server.py"
+env:
+  - name: "LAKEBASE_SECRET_SCOPE"
+    value: "database"
+  - name: "LAKEBASE_SECRET_KEY"
+    value: "lakebase-url"
+  - name: "WIKIPEDIA_USER_AGENT"
+    value: "RoamAI/1.0 (rajendrannpriyankaa24@gmail.com)"
+  - name: "PORT"
+    value: "8000"
