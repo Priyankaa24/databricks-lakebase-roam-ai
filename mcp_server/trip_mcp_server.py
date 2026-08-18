@@ -1,7 +1,7 @@
 """
 RoamAI MCP server.
 
-Exposes 7 tools that a Databricks Agent Bricks agent can call to plan
+Exposes 8 tools that a Databricks Agent Bricks agent can call to plan
 weather-aware outdoor trips:
 
   Reads:
@@ -9,11 +9,12 @@ weather-aware outdoor trips:
     2. search_activities       - semantic search over activities
 
   Writes:
-    3. build_itinerary         - generate day-by-day plan
-    4. add_itinerary_item      - add one activity to a day
-    5. remove_itinerary_item   - delete an itinerary entry
-    6. reschedule_for_weather  - move outdoor activities off rainy days
-    7. build_packing_list      - generate packing recommendations
+    3. add_destination         - onboard a new destination (geocode + embed)
+    4. build_itinerary         - generate day-by-day plan
+    5. add_itinerary_item      - add one activity to a day
+    6. remove_itinerary_item   - delete an itinerary entry
+    7. reschedule_for_weather  - move outdoor activities off rainy days
+    8. build_packing_list      - generate packing recommendations
 
 Deployed as a Databricks App. Agent Bricks connects to this server as
 an external MCP tool source.
@@ -106,20 +107,36 @@ def _trace(tool_name: str, params: dict, result, duration_ms: int, success: bool
 
 
 def traced(fn):
-    """Decorator: time the call, capture params + result, log to Lakebase."""
-    def wrapper(**kwargs):
+    """Decorator: time the call, capture params + result, log to Lakebase.
+
+    Uses functools.wraps to preserve the wrapped function's signature so
+    FastMCP can introspect parameters when registering the tool.
+    """
+    import functools
+    import inspect
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        # Bind args to kwargs for logging using the wrapped function's signature
+        sig = inspect.signature(fn)
+        try:
+            bound = sig.bind(*args, **kwargs)
+            bound.apply_defaults()
+            params_for_log = dict(bound.arguments)
+        except Exception:
+            params_for_log = {"args": list(args), "kwargs": kwargs}
+
         start = time.time()
         try:
-            result = fn(**kwargs)
+            result = fn(*args, **kwargs)
             duration_ms = int((time.time() - start) * 1000)
-            _trace(fn.__name__, kwargs, result, duration_ms, True)
+            _trace(fn.__name__, params_for_log, result, duration_ms, True)
             return result
         except Exception as e:
             duration_ms = int((time.time() - start) * 1000)
-            _trace(fn.__name__, kwargs, None, duration_ms, False, str(e))
+            _trace(fn.__name__, params_for_log, None, duration_ms, False, str(e))
             raise
-    wrapper.__name__ = fn.__name__
-    wrapper.__doc__ = fn.__doc__
+
     return wrapper
 
 
@@ -163,6 +180,86 @@ def search_activities(
 # ---------------------------------------------------------------------------
 # WRITE TOOLS
 # ---------------------------------------------------------------------------
+
+@mcp.tool
+@traced
+def add_destination(destination_name: str, trip_id: int) -> dict:
+    """Onboard a new destination to an existing trip. Geocodes the
+    destination name via Open-Meteo, fetches its Wikipedia summary,
+    inserts a row into the destinations table, and embeds the
+    description for semantic search.
+
+    Use this when the user names a destination that isn't already
+    attached to their trip. After this returns, other tools (search_activities,
+    build_itinerary, reschedule_for_weather) can work with the new destination.
+
+    Note: does NOT auto-populate activities for the destination. Activities
+    must be seeded separately (via search_activities finding matches from
+    other destinations, or manual entry).
+    """
+    # 1. Geocode
+    try:
+        geo = trip_broker.geocode(destination_name)
+    except ValueError as e:
+        return {"error": str(e)}
+
+    # 2. Wikipedia (best-effort — proceed without if it fails)
+    description = None
+    wiki_url = None
+    try:
+        wiki = trip_broker.get_wikipedia_summary(destination_name)
+        description = wiki.get("extract")
+        wiki_url = wiki.get("url")
+    except Exception:
+        # Fall back to a minimal description if Wikipedia has no matching page
+        description = f"{geo['name']}, {geo['country']}"
+
+    # 3. Insert destination row (without embedding yet)
+    dest_rows = lakebase.run_query(
+        """
+        INSERT INTO destinations
+            (trip_id, name, country, admin1, latitude, longitude,
+             timezone, description, wikipedia_url)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
+        """,
+        (
+            trip_id, geo["name"], geo["country"], geo.get("admin1"),
+            geo["latitude"], geo["longitude"], geo["timezone"],
+            description, wiki_url,
+        ),
+    )
+    dest_id = dest_rows[0]["id"]
+
+    # 4. Embed the description
+    if description:
+        try:
+            vector_str = trip_broker.encode_query(description)
+            lakebase.run_write(
+                "UPDATE destinations SET description_embedding = %s::vector WHERE id = %s",
+                (vector_str, dest_id),
+            )
+            embedded = True
+        except Exception as e:
+            embedded = False
+    else:
+        embedded = False
+
+    return {
+        "destination_id": dest_id,
+        "trip_id": trip_id,
+        "name": geo["name"],
+        "country": geo["country"],
+        "admin1": geo.get("admin1"),
+        "latitude": geo["latitude"],
+        "longitude": geo["longitude"],
+        "timezone": geo["timezone"],
+        "wikipedia_url": wiki_url,
+        "embedded": embedded,
+        "message": f"Added {geo['name']} to trip {trip_id}"
+                   + (" and embedded its description" if embedded else ""),
+    }
+
 
 @mcp.tool
 @traced
